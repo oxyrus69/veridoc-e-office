@@ -306,7 +306,6 @@ Berita acara ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestiny
   /* Documents                                                        */
   /* ---------------------------------------------------------------- */
 
-  const templateByCode = Object.fromEntries(templates.map((t) => [t.code, t]));
 
   /**
    * Creates one document plus its version rows and workflow steps.

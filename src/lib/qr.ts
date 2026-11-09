@@ -1,13 +1,5 @@
 /** Minimal QR Code encoder (byte mode, error correction level M) — no external API. */
 
-const ECC_CODEWORDS_PER_BLOCK = [
-  -1, 7, 10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24, 28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30, 30, 30, 30, 30,
-  // 33..40 low, not used at level M
-];
-const NUM_ERROR_CORRECTION_BLOCKS = [
-  -1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31,
-];
-
 // Level M tables (index by version).
 const ECC_PER_BLOCK_M = [
   -1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28,

@@ -10,7 +10,6 @@ import {
   CATEGORY_LABEL,
   STATUS_LABEL,
   STATUS_TONE,
-  URGENCY_LABEL,
   relativeTime,
   shortHash,
 } from "@/lib/labels";

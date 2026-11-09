@@ -10,8 +10,8 @@ import { getAnalytics, listPriorityQueue, listRecentActivity } from "@/server/se
 import { computeDss, persistDssDecisions } from "@/server/services/dssEngine";
 import { getCurrentUser } from "@/server/session";
 import { canAccess } from "@/server/auth";
-import { CATEGORY_LABEL, STATUS_LABEL, STATUS_TONE, relativeTime, formatNumber } from "@/lib/labels";
-import type { DocumentCategory, DocStatus } from "@/server/db/schema";
+import { CATEGORY_LABEL, relativeTime, formatNumber } from "@/lib/labels";
+import type { DocumentCategory } from "@/server/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -86,8 +86,8 @@ export default async function AdminDashboard() {
             value={`${analytics.slaCompliancePct}%`}
             tone={analytics.slaCompliancePct >= 90 ? "success" : analytics.slaCompliancePct >= 70 ? "warning" : "danger"}
             delta={{
-              value: `${queue.filter((q) => new Date(q.slaDueAt).getTime() < Date.now()).length} lewat tenggat`,
-              tone: queue.some((q) => new Date(q.slaDueAt).getTime() < Date.now()) ? "down" : "up",
+              value: `${queue.filter((q) => q.isOverdue).length} lewat tenggat`,
+              tone: queue.some((q) => q.isOverdue) ? "down" : "up",
             }}
             footer={`Rata-rata siklus segel ${analytics.avgSealCycleHours} jam`}
           />
@@ -217,7 +217,7 @@ export default async function AdminDashboard() {
                       </tr>
                     ) : (
                       queue.map((item) => {
-                        const overdue = new Date(item.slaDueAt).getTime() < Date.now();
+                        const overdue = item.isOverdue;
                         return (
                           <tr key={item.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80">
                             <td className="px-4 py-2.5">

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import ActionForm from "@/components/ui/ActionForm";
 import { listCorrespondences } from "@/server/services/templateEngine";
 import { getCurrentUser } from "@/server/session";
-import { URGENCY_LABEL, CONFIDENTIALITY_LABEL, formatDate } from "@/lib/labels";
+import { URGENCY_LABEL, formatDate } from "@/lib/labels";
 import type { Urgency } from "@/server/db/schema";
 
 export const dynamic = "force-dynamic";

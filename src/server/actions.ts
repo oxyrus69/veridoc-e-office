@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/server/db";
 import { getCurrentUser, logout } from "@/server/session";
 import { canAccess } from "@/server/auth";
+import { AccessDeniedError, UnauthenticatedError, assertNotReadOnly, requireSigner } from "@/server/rbac";
 import { appendAudit } from "@/server/services/audit";
 import { submitApprovalVerdict } from "@/server/services/approvalEngine";
 import { addDocumentRevision, createDocumentDraft, revokeDocument } from "@/server/services/documentEngine";
@@ -70,10 +71,12 @@ export async function runAction(_prev: unknown, formData: FormData) {
       /* ---------- approval ---------- */
       case "approval:approve":
       case "approval:reject": {
+        // Only an officer with an ACTIVE signing certificate may paraf.
+        const signer = await requireSigner();
         const isApprove = name === "approval:approve";
         const result = await submitApprovalVerdict({
           documentId: f.documentId,
-          approverId: user.u,
+          approverId: signer.u,
           pin: f.pin ?? "",
           verdict: isApprove ? "APPROVED_SIGNED" : "REJECTED_RETURNED",
           comments: f.comments || (isApprove ? "Disetujui." : ""),
@@ -92,8 +95,7 @@ export async function runAction(_prev: unknown, formData: FormData) {
       case "compose:submit": {
         if (!canAccess(user.r, "/documents/compose")) {
           return { ok: false, message: "Peran Anda tidak dapat menyusun dokumen." };
-        }
-        const template = await getTemplateById(f.templateId ?? "");
+        }        const template = await getTemplateById(f.templateId ?? "");
         if (!template || !template.isActive) {
           return { ok: false, message: "Pilih template naskah yang aktif." };
         }
@@ -166,8 +168,9 @@ export async function runAction(_prev: unknown, formData: FormData) {
 
       /* ---------- document maintenance ---------- */
       case "document:revision": {
-        if (user.r === "AUDITOR_COMPLIANCE") {
-          return { ok: false, message: "Auditor tidak dapat mengubah dokumen." };
+        // Revisions may only be uploaded by the author role or an administrator.
+        if (user.r !== "DOCUMENT_CREATOR" && user.r !== "SUPER_ADMIN") {
+          return { ok: false, message: "Hanya penyusun dokumen atau Super Admin yang dapat mengunggah revisi." };
         }
         const notes = f.changeNotes?.trim();
         if (!notes) return { ok: false, message: "Catatan perubahan wajib diisi." };
@@ -216,8 +219,7 @@ export async function runAction(_prev: unknown, formData: FormData) {
         if (user.r !== "SUPER_ADMIN") {
           return { ok: false, message: "Hanya Super Admin yang dapat mencabut naskah." };
         }
-        if (!f.reason?.trim()) return { ok: false, message: "Alasan pencabutan wajib diisi." };
-        await revokeDocument({ documentId: f.documentId, revokedBy: user.u, reason: f.reason.trim() });
+        if (!f.reason?.trim()) return { ok: false, message: "Alasan pencabutan wajib diisi." };        await revokeDocument({ documentId: f.documentId, revokedBy: user.u, reason: f.reason.trim() });
         const db = await getDb();
         await appendAudit({
           actorId: user.u,
@@ -235,9 +237,8 @@ export async function runAction(_prev: unknown, formData: FormData) {
 
       /* ---------- correspondence & dispositions ---------- */
       case "correspondence:create": {
-        if (user.r === "AUDITOR_COMPLIANCE") {
-          return { ok: false, message: "Auditor tidak dapat mencatat agenda surat." };
-        }
+        // Recording an agenda is an authoring task; auditors stay read-only.
+        assertNotReadOnly(user);
         if (!f.subject?.trim() || !f.senderInstitution?.trim()) {
           return { ok: false, message: "Pengirim dan perihal wajib diisi." };
         }
@@ -260,9 +261,8 @@ export async function runAction(_prev: unknown, formData: FormData) {
       }
 
       case "disposition:assign": {
-        if (user.r === "AUDITOR_COMPLIANCE") {
-          return { ok: false, message: "Auditor tidak dapat mendisposisikan surat." };
-        }
+        // Issuing an instruction is an authoring task.
+        assertNotReadOnly(user);
         if (!f.instruction?.trim() || !f.toUserId) {
           return { ok: false, message: "Instruksi dan pelaksana wajib diisi." };
         }
@@ -283,7 +283,8 @@ export async function runAction(_prev: unknown, formData: FormData) {
           toUserId: f.toUserId,
           instruction: f.instruction.trim(),
           targetUnit: f.targetUnit?.trim() ?? "",
-          dueDate: f.dueDate || new Date().toISOString().slice(0, 10),
+          // The server owns the default so a blank field still yields a valid date.
+          dueDate: f.dueDate?.trim() || new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
         });
         await appendAudit({
           actorId: user.u,
@@ -300,8 +301,10 @@ export async function runAction(_prev: unknown, formData: FormData) {
       }
 
       case "disposition:complete": {
-        if (user.r === "AUDITOR_COMPLIANCE") {
-          return { ok: false, message: "Auditor tidak dapat menuntaskan disposisi." };
+        // The assignee or an administrator closes an instruction; auditors cannot.
+        assertNotReadOnly(user);
+        if (!f.nodeId) {
+          return { ok: false, message: "Instruksi yang dituntaskan tidak dikenali." };
         }
         await completeDispositionNode({ nodeId: f.nodeId, note: f.note?.trim() || "Selesai ditindaklanjuti." });
         revalidateAll();
@@ -377,6 +380,12 @@ export async function runAction(_prev: unknown, formData: FormData) {
         return { ok: false, message: `Aksi tidak dikenal: ${name}` };
     }
   } catch (error) {
+    if (error instanceof UnauthenticatedError) {
+      return { ok: false, message: error.message };
+    }
+    if (error instanceof AccessDeniedError) {
+      return { ok: false, message: error.message };
+    }
     const message = error instanceof Error ? error.message : "Terjadi kesalahan saat memproses.";
     return { ok: false, message };
   }

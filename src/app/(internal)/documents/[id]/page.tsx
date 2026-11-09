@@ -3,16 +3,10 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BellOff,
-  CheckCircle2,
-  Copy,
-  Crown,
   FileEdit,
-  Gauge,
   History,
-  KeyRound,
   Link2,
   Printer,
-  QrCode as QrIcon,
   ShieldAlert,
   ShieldCheck,
   Stamp,
@@ -25,11 +19,12 @@ import ActionForm from "@/components/ui/ActionForm";
 import { QrCodeSvg } from "@/components/QrCodeSvg";
 import { getDocumentDetail } from "@/server/services/documentEngine";
 import { listWorkflowSteps, auditChain } from "@/server/services/approvalEngine";
-import { getCertificateForUser } from "@/server/services/cryptoSealEngine";
+import {} from "@/server/services/cryptoSealEngine";
 import { getSettings } from "@/server/services/settings";
 import { getCertFingerprintMap } from "../detail-helpers";
+import { diffText } from "@/server/services/diffEngine";
 import { getCurrentUser } from "@/server/session";
-import { canAccess, canSign } from "@/server/auth";
+import { canAccess} from "@/server/auth";
 import {
   CATEGORY_LABEL,
   CONFIDENTIALITY_LABEL,
@@ -58,33 +53,18 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
   ]);
   if (!detail) notFound();
 
-  const typedSteps = (steps as unknown[]).map((s: unknown) => ({
-    id: String((s as any)?.id),
-    stepOrder: Number((s as any)?.stepOrder),
-    stepName: String((s as any)?.stepName),
-    previousStepSignatureHash: String((s as any)?.previousStepSignatureHash ?? "GENESIS"),
-    stepSignatureHash: (s as any)?.stepSignatureHash ?? null,
-    rsaSignature: (s as any)?.rsaSignature ?? null,
-    assignedApproverId: String((s as any)?.assignedApproverId ?? (s as any)?.approverId),
-    actedAt: (s as any)?.actedAt,
-    verdict: String((s as any)?.verdict),
-    certificateFingerprint: (s as any)?.certificateFingerprint ?? null,
-    approverName: String((s as any)?.approverName ?? "-"),
-    approverTitle: String((s as any)?.approverTitle ?? (s as any)?.approverRole ?? "-"),
-    approverRole: String((s as any)?.approverRole ?? "-"),
-    slaDueAt: (s as any)?.slaDueAt,
-  }));
-
+  // `listWorkflowSteps` selects every column the inspector and the chain audit
+  // need (including rsa_signature), so the rows are used as returned.
   const sealed = detail.status === "SEALED_PUBLISHED" || detail.status === "REVOKED_INVALIDATED" || detail.status === "EXPIRED";
   const chain = auditChain({
-    steps: typedSteps,
+    steps,
     contentHash: detail.canonicalContentHash ?? "",
     publicKeys,
     sealed,
   });
 
-  const currentVersion = detail.versions.find((v: { versionNo: number }) => v.versionNo === detail.currentVersionNo);
-  const myPendingStep = typedSteps.find(
+  const currentVersion = detail.versions.find((v) => v.versionNo === detail.currentVersionNo);
+  const myPendingStep = steps.find(
     (s) => s.verdict === "PENDING_ACTION" && s.assignedApproverId === user.u && detail.status === "IN_REVIEW_WORKFLOW",
   );
   const isCreator = detail.creatorId === user.u;
@@ -163,7 +143,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
               <MetaLine label="Penyusun" value={`${detail.creatorName} — ${detail.creatorTitle}`} />
             </div>
             <div className="pt-4">
-              <RenderBody body={currentVersion?.renderedBodyText ?? "(versi kosong)"} highlightNumber={detail.documentNumber} />
+              <RenderBody body={currentVersion?.renderedBodyText ?? "(versi kosong)"} />
             </div>
             {sealed ? (
               <footer className="mt-8 border-t-2 border-zinc-900 pt-4">
@@ -193,22 +173,71 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
               <span className="rounded-[var(--radius-sm)] bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-zinc-600">{detail.versions.length}</span>
             </header>
             <ol className="divide-y divide-zinc-100">
-              {[...detail.versions].reverse().map((version) => (
-                <li key={version.id} className={`px-4 py-3 ${version.versionNo === detail.currentVersionNo ? "bg-[var(--seal-soft)]/40" : ""}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge tone={version.versionNo === detail.currentVersionNo ? "seal" : "neutral"} mono>
-                        v{version.versionNo}
-                      </Badge>
-                      <span className="text-[12px] font-medium text-zinc-700">{version.changeNotes || "Tanpa catatan"}</span>
+              {[...detail.versions].reverse().map((version, index, arr) => {
+                const previous = arr[index + 1];
+                const diff =
+                  previous && version.renderedBodyText !== previous.renderedBodyText
+                    ? diffText(previous.renderedBodyText, version.renderedBodyText)
+                    : null;
+                return (
+                  <li key={version.id} className={`px-4 py-3 ${version.versionNo === detail.currentVersionNo ? "bg-[var(--seal-soft)]/40" : ""}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge tone={version.versionNo === detail.currentVersionNo ? "seal" : "neutral"} mono>
+                          v{version.versionNo}
+                        </Badge>
+                        <span className="text-[12px] font-medium text-zinc-700">{version.changeNotes || "Tanpa catatan"}</span>
+                      </div>
+                      <span className="text-[11px] text-zinc-400">
+                        {version.createdByName} · {formatDateTime(version.createdAt)}
+                      </span>
                     </div>
-                    <span className="text-[11px] text-zinc-400">
-                      {version.createdByName} · {formatDateTime(version.createdAt)}
-                    </span>
-                  </div>
-                  <p className="mt-1.5 break-all font-mono text-[11px] text-zinc-400">SHA-256 {version.contentSha256}</p>
-                </li>
-              ))}
+                    <p className="mt-1.5 break-all font-mono text-[11px] text-zinc-400">SHA-256 {version.contentSha256}</p>
+
+                    {diff ? (
+                      <div className="mt-2">
+                        <p className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+                          <span className="font-medium text-zinc-600">
+                            Perubahan dari v{previous.versionNo}:
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] text-emerald-700">
+                            +{diff.added}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] text-amber-700">
+                            ~{diff.changed}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-red-200 bg-red-50 px-1.5 py-0.5 font-mono text-[10px] text-red-700">
+                            −{diff.removed}
+                          </span>
+                        </p>
+                        <div className="thin-scroll mt-1.5 max-h-44 overflow-y-auto rounded-[var(--radius-sm)] border border-zinc-200 bg-zinc-50/60">
+                          <table className="w-full border-collapse font-mono text-[11px] leading-4">
+                            <caption className="sr-only">Perbandingan baris versi {previous.versionNo} dan {version.versionNo}</caption>
+                            <tbody>
+                              {diff.ops
+                                .filter((op) => op.type !== "equal")
+                                .slice(0, 30)
+                                .map((op, opIndex) => (
+                                  <tr key={opIndex} className="border-b border-zinc-100 last:border-0">
+                                    <td className="w-9 px-2 py-1 text-right align-top text-zinc-400">{op.lineNo}</td>
+                                    <td className="px-2 py-1 align-top">
+                                      {op.before ? (
+                                        <span className="block text-zinc-400 line-through">{truncateLine(op.before)}</span>
+                                      ) : null}
+                                      {op.after ? (
+                                        <span className="block text-emerald-800">{truncateLine(op.after)}</span>
+                                      ) : null}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
           </section>
         </div>
@@ -240,7 +269,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
             </header>
             <ol className="px-4 py-3">
               <ChainNode label="GENESIS_VERIDOC_CHAIN" note="Titik awal rantai" mono value="" tone="neutral" />
-              {typedSteps.map((step) => (
+              {steps.map((step) => (
                 <ChainNode
                   key={step.id}
                   label={`Tahap ${step.stepOrder} — ${step.stepName}`}
@@ -294,6 +323,8 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                 documentId={detail.id}
                 expectedVersion={detail.version}
                 approverName={user.n}
+                isOverdue={myPendingStep.isOverdue}
+                hoursOverdue={myPendingStep.hoursOverdue}
               />
             ) : (
               <section className="rounded-[var(--radius-lg)] border border-amber-200 bg-amber-50/60 px-4 py-3 text-[12px] leading-5 text-amber-900">
@@ -337,7 +368,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
               <h2 className="text-[13px] font-semibold tracking-tight">Pejabat alur</h2>
             </header>
             <ul className="divide-y divide-zinc-100">
-              {typedSteps.map((step) => (
+              {steps.map((step) => (
                 <li key={step.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate text-[12px] font-medium text-zinc-800">{step.approverName}</p>
@@ -384,6 +415,8 @@ function ApprovalCard({
   documentId,
   expectedVersion,
   approverName,
+  isOverdue,
+  hoursOverdue,
 }: {
   stepName: string;
   stepOrder: number;
@@ -391,15 +424,17 @@ function ApprovalCard({
   documentId: string;
   expectedVersion: number;
   approverName: string;
+  isOverdue: boolean;
+  hoursOverdue: number;
 }) {
-  const overdue = slaDueAt.getTime() < Date.now();
+  const overdue = isOverdue;
   return (
     <section className="rounded-[var(--radius-lg)] border-2 border-[var(--accent-interactive)] bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <Stamp className="h-4 w-4 text-[var(--accent-interactive)]" />
         <h2 className="text-[13px] font-semibold tracking-tight text-zinc-900">Paraf tahap {stepOrder}</h2>
         <Badge tone={overdue ? "danger" : "info"}>
-          {overdue ? `Lewat ${Math.round((Date.now() - slaDueAt.getTime()) / 3600000)} jam` : `Tenggat ${formatDateTime(slaDueAt)}`}
+          {overdue ? `Lewat ${hoursOverdue} jam` : `Tenggat ${formatDateTime(slaDueAt)}`}
         </Badge>
       </div>
       <p className="mt-1 text-[11px] leading-4 text-zinc-500">
@@ -586,8 +621,14 @@ function ChainNode({
   );
 }
 
-function RenderBody({ body, highlightNumber }: { body: string; highlightNumber: string | null }) {
-  const lines = body.split("\n");
+/** Long lines are elided so a diff row never blows out the panel. */
+function truncateLine(value: string, max = 140): string {
+  const clean = value.trim();
+  if (clean.length <= max) return clean || "(kosong)";
+  return `${clean.slice(0, max)}…`;
+}
+
+function RenderBody({ body }: { body: string }) {  const lines = body.split("\n");
   return (
     <div className="space-y-2">
       {lines.map((raw, i) => {

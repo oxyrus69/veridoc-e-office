@@ -17,11 +17,14 @@ npm run start          # atau: npm run dev
 ```
 
 Uji menyeluruh (determinisme hash, deteksi tamper, alur persetujuan, RBAC,
-format CSV, kredensial):
+format CSV, kredensial, guard middleware & server action):
 
 ```bash
-npm run e2e            # 25 pemeriksaan, 0 kegagalan
+npm run e2e            # 28 pemeriksaan, 0 kegagalan
 ```
+
+Skrip ini menyemai ulang database lebih dulu, sehingga aman dijalankan
+berulang kali (beberapa pemeriksaan sengaja mengubah dokumen).
 
 ### Mode basis data
 
@@ -58,7 +61,23 @@ S_0   = GENESIS_VERIDOC_CHAIN
 - **Tamper Detection Lab** menghitung SHA-256 di peramban (Web Crypto) — naskah
   tidak pernah dikirim ke server.
 
-## Modul
+## Kontrol akses
+
+Dua lapis, sesuai spesifikasi:
+
+1. **`src/middleware.ts`** — memverifikasi cookie sesi (HMAC, tanpa query DB) dan
+   menerapkan aturan peran dengan *longest-prefix match* terhadap
+   `ROUTE_PERMISSIONS`. Rute publik (`/`, `/verify`, `/login`, `/api/export`)
+   dilewatkan; sisanya mengalihkan ke `/login?next=…` bila belum masuk, atau ke
+   beranda peran bila peran tidak berhak.
+2. **`src/server/rbac.ts`** — setiap *Server Action* kembali memeriksa peran
+   melalui `requireRole()`, `requireSigner()`, `requireAuthor()`,
+   `requireAdmin()`, atau `assertNotReadOnly()`. Menyembunyikan tombol di UI
+   tidak dianggap sebagai kontrol akses.
+
+Riwayat versi menampilkan diff baris (tambah/ubah/hapus) antar versi, dan
+pengaturan `sla_hours_per_step` serta `require_pin_final` benar-benar dibaca
+oleh mesin persetujuan.
 
 - `/admin` dasbor tata kelola, `/admin/audit` jejak audit, `/admin/settings`
 - `/inbox` kotak masuk paraf dengan SLA

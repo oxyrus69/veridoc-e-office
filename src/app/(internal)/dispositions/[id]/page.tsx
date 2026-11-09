@@ -172,7 +172,16 @@ export default async function DispositionDetailPage({ params }: { params: Promis
                 </label>
                 <label className="block">
                   <span className="text-xs font-medium text-zinc-600">Tenggat</span>
-                  <input type="date" name="dueDate" required defaultValue={new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10)} className="mt-1 w-full rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3 py-2 text-[13px] focus:border-[var(--accent-interactive)] focus:outline-none" />
+                  <input
+                    type="date"
+                    name="dueDate"
+                    required
+                    aria-describedby="dueDate-hint"
+                    className="mt-1 w-full rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3 py-2 text-[13px] focus:border-[var(--accent-interactive)] focus:outline-none"
+                  />
+                  <span id="dueDate-hint" className="mt-1 block text-[11px] text-zinc-500">
+                    Kosongkan untuk tenggat bawaan 3 hari dari hari ini.
+                  </span>
                 </label>
                 <button type="submit" className="w-full rounded-[var(--radius-md)] bg-[var(--accent-primary)] px-3 py-2 text-[13px] font-semibold text-white hover:bg-[var(--accent-primary-hover)]">
                   Simpan instruksi

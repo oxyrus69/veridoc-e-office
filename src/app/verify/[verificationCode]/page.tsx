@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ChevronRight, Crosshair, FileText, Home, KeyRound, Link2, Printer, QrCode, Scale, ShieldAlert, ShieldCheck } from "lucide-react";
-import { verifyByCode, logScan } from "@/server/services/verificationEngine";
+import { ArrowLeft, CheckCircle2, ChevronRight, Crosshair, FileText, Home, KeyRound, Link2, Printer, Scale, ShieldAlert, ShieldCheck } from "lucide-react";
+import { verifyByCode } from "@/server/services/verificationEngine";
+import { getSessionPayload } from "@/server/session";
 import { getSettings } from "@/server/services/settings";
 import { QrCodeSvg } from "@/components/QrCodeSvg";
 import TamperLab from "@/components/TamperLab";
@@ -30,9 +31,9 @@ export default async function VerifyResultPage({
           <ResultBadge outcome={outcome} />
           <p className="mt-4 text-sm leading-6 text-zinc-600">{outcome.explanation}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <a href={`/verify?code=${encodeURIComponent(verificationCode)}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3.5 py-2 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50">
+            <Link href={`/verify?code=${encodeURIComponent(verificationCode)}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3.5 py-2 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50">
               <ArrowLeft className="h-3.5 w-3.5" /> Coba kode lain
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -51,14 +52,13 @@ export default async function VerifyResultPage({
   const doc = outcome.document;
   if (!doc) {
     return (
-      <Shell code={verificationCode}>
-        <div className="mx-auto max-w-2xl">
+      <Shell code={verificationCode}>        <div className="mx-auto max-w-2xl">
           <ResultBadge outcome={outcome} />
           <p className="mt-4 text-sm leading-6 text-zinc-600">{outcome.explanation}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <a href={`/verify?code=${encodeURIComponent(verificationCode)}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3.5 py-2 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50">
+            <Link href={`/verify?code=${encodeURIComponent(verificationCode)}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3.5 py-2 text-[13px] font-medium text-zinc-800 hover:bg-zinc-50">
               <ArrowLeft className="h-3.5 w-3.5" /> Coba kode lain
-            </a>
+            </Link>
           </div>
         </div>
         <section className="mt-10">
@@ -69,9 +69,11 @@ export default async function VerifyResultPage({
   }
 
   const settings = await getSettings();
+  // Printing is an authenticated action, so the public portal offers the print
+  // button only to a signed-in visitor.
+  const canPrint = Boolean(await getSessionPayload());
   const sealedSteps = outcome.signers.filter((s) => s.verdict === "APPROVED_SIGNED");
   const qrValue = `${settings[SETTING_VERIFY_BASE_URL].replace(/\/+$/, "")}/verify/${doc.verificationCode}`;
-  void logScan({ verificationCode: doc.verificationCode, documentId: doc.id, result: outcome.scanResult, summary: outcome.headline }).catch(() => undefined);
   const displayTab = tab === "lab" ? "lab" : tab === "board" ? "board" : tab === "chain" ? "chain" : "result";
 
   return (
@@ -128,9 +130,15 @@ export default async function VerifyResultPage({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <a href={`/print/document/${doc.id}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50">
-                    <Printer className="h-3.5 w-3.5" /> Cetak sertifikat
-                  </a>
+                  {canPrint ? (
+                    <Link href={`/print/document/${doc.id}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50">
+                      <Printer className="h-3.5 w-3.5" /> Cetak sertifikat
+                    </Link>
+                  ) : (
+                    <Link href={`/login?next=/print/document/${doc.id}`} className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-zinc-300 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50">
+                      <Printer className="h-3.5 w-3.5" /> Masuk untuk mencetak
+                    </Link>
+                  )}
                   <Link
                     href={`/verify/${doc.verificationCode}?tab=lab`}
                     className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-zinc-900 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-zinc-700"
@@ -214,9 +222,12 @@ export default async function VerifyResultPage({
                       </div>
                     ) : null}
                   </dl>
-                  <a href={`/verify/${doc.verificationCode}?tab=lab`} className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--accent-interactive)] hover:underline">
+                  <Link
+                    href={`/verify/${doc.verificationCode}?tab=lab`}
+                    className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--accent-interactive)] hover:underline"
+                  >
                     Bandingkan dengan naskah Anda <ChevronRight className="h-3 w-3" />
-                  </a>
+                  </Link>
                 </section>
               ) : null}
             </aside>

@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/server/db";
 import type { Database } from "@/server/db";
 import { daysBetween } from "@/lib/labels";

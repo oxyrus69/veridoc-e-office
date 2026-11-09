@@ -9,6 +9,7 @@ import {
   sealApprovalStep,
   verifyChainHashSignature,
 } from "./cryptoSealEngine";
+import { getSetting, SETTING_KEYS } from "./settings";
 import { appendAudit } from "./audit";
 
 export type ApprovalOutcome = {
@@ -148,6 +149,13 @@ export async function submitApprovalVerdict(params: {
   if (!certificate || certificate.status !== "ACTIVE") {
     return { ok: false, code: "INVALID_PIN", message: "Sertifikat penandatangan tidak aktif" };
   }
+
+  // The PIN is mandatory for the sealing signature (require_pin_final).
+  const isFinalStep = steps.filter((s) => s.stepOrder > active.stepOrder).length === 0;
+  const pinRequired = isFinalStep ? (await getSetting(SETTING_KEYS.requirePinFinal)) !== "false" : true;
+  if (pinRequired && !params.pin) {
+    return { ok: false, code: "INVALID_PIN", message: "PIN tanda tangan wajib diisi untuk tahap ini" };
+  }
   if (!verifySigningPin(params.pin, certificate.signingPinHash)) {
     return { ok: false, code: "INVALID_PIN", message: "PIN tanda tangan salah" };
   }
@@ -222,7 +230,8 @@ export async function submitApprovalVerdict(params: {
 
   if (!isFinal) {
     const nextStep = remaining[0];
-    const slaHours = template?.slaHoursPerStep ?? 24;
+    // The configured SLA is the default; the template may override it per step.
+    const slaHours = Number((await getSetting(SETTING_KEYS.slaHours)) ?? 0) || template?.slaHoursPerStep || 24;
     await db
       .update(schema.approvalWorkflowSteps)
       .set({
@@ -372,7 +381,7 @@ export async function countPendingForUser(userId: string, db?: Database): Promis
 
 export async function listWorkflowSteps(documentId: string, db?: Database) {
   const database = db ?? (await getDb());
-  return database
+  const rows = await database
     .select({
       id: schema.approvalWorkflowSteps.id,
       stepOrder: schema.approvalWorkflowSteps.stepOrder,
@@ -397,6 +406,16 @@ export async function listWorkflowSteps(documentId: string, db?: Database) {
     .innerJoin(schema.profiles, eq(schema.profiles.id, schema.approvalWorkflowSteps.assignedApproverId))
     .where(eq(schema.approvalWorkflowSteps.documentId, documentId))
     .orderBy(asc(schema.approvalWorkflowSteps.stepOrder));
+
+  // Overdue is decided where the data lives so the view never reads the clock.
+  const nowMs = Date.now();
+  return rows.map((row) => ({
+    ...row,
+    slaDueAt: new Date(row.slaDueAt),
+    actedAt: row.actedAt ? new Date(row.actedAt) : null,
+    isOverdue: new Date(row.slaDueAt).getTime() < nowMs,
+    hoursOverdue: Math.max(0, Math.round((nowMs - new Date(row.slaDueAt).getTime()) / 3600000)),
+  }));
 }
 
 /** Resets every step to WAITING_PREVIOUS (step 1 pending) for a new revision. */

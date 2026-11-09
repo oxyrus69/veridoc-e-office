@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb, schema } from "@/server/db";
 import type { Database } from "@/server/db";
 import { daysBetween } from "@/lib/labels";
@@ -148,7 +148,7 @@ export async function listRecentActivity(limit = 8, db?: Database) {
 
 export async function listPriorityQueue(limit = 6, db?: Database) {
   const database = db ?? (await getDb());
-  return database
+  const rows = await database
     .select({
       id: schema.officialDocuments.id,
       title: schema.officialDocuments.title,
@@ -166,6 +166,15 @@ export async function listPriorityQueue(limit = 6, db?: Database) {
     .where(and(eq(schema.approvalWorkflowSteps.verdict, "PENDING_ACTION"), eq(schema.officialDocuments.status, "IN_REVIEW_WORKFLOW")))
     .orderBy(schema.approvalWorkflowSteps.slaDueAt)
     .limit(limit);
+
+  // Overdue is decided where the data lives, so the view never reads the clock.
+  const nowMs = Date.now();
+  return rows.map((row) => ({
+    ...row,
+    slaDueAt: new Date(row.slaDueAt),
+    updatedAt: new Date(row.updatedAt),
+    isOverdue: new Date(row.slaDueAt).getTime() < nowMs,
+  }));
 }
 
 export async function countScansSince(days: number, db?: Database) {

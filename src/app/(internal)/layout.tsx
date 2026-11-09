@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { getCurrentUser } from "@/server/session";
@@ -24,12 +25,12 @@ export default async function InternalLayout({ children }: { children: React.Rea
           Mode demo — database <span className="font-medium">{databaseModeLabel()}</span> — kata sandi{" "}
           <code className="font-mono">veridoc123</code>, PIN paraf <code className="font-mono">123456</code>.
         </p>
-        <a
+        <Link
           href="/verify/VRD-2026-8F92A1"
           className="shrink-0 font-medium text-amber-900 underline decoration-amber-400 underline-offset-2 hover:decoration-amber-800"
         >
           Uji QR publik
-        </a>
+        </Link>
       </div>
       {children}
     </AppShell>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getDb, schema } from "@/server/db";
 import { roleHome } from "@/server/auth";
 import { login, getCurrentUser, listDemoAccounts } from "@/server/session";
 import "./login.css";
@@ -50,7 +50,7 @@ export default async function LoginPage({
       <div className="mx-auto grid min-h-screen max-w-5xl grid-cols-1 gap-8 px-4 py-8 md:grid-cols-[1.05fr_1fr] md:items-center">
         {/* Left rail — product pitch + demo accounts */}
         <section>
-          <a href="/" className="inline-flex items-center gap-2.5">
+          <Link href="/" className="inline-flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--seal)] font-mono text-sm font-bold text-white">
               Vd
             </div>
@@ -58,7 +58,7 @@ export default async function LoginPage({
               <p className="text-sm font-semibold tracking-tight text-zinc-900">VeriDoc</p>
               <p className="text-xs leading-4 text-zinc-500">E-Office & verifikasi kriptografis</p>
             </div>
-          </a>
+          </Link>
 
           <h1 className="mt-8 text-3xl font-bold tracking-tight text-zinc-900 md:text-4xl">
             Masuk untuk memparaf, menerbitkan, dan mengawasi rantai tanda tangan.
@@ -147,9 +147,9 @@ export default async function LoginPage({
 
             <p className="mt-3 text-center text-xs leading-4 text-zinc-500">
               Tanpa login, masih bisa{" "}
-              <a href="/verify" className="font-medium text-[var(--accent-interactive)] hover:underline">
+              <Link href="/verify" className="font-medium text-[var(--accent-interactive)] hover:underline">
                 memverifikasi dokumen QR
-              </a>
+              </Link>
               .
             </p>
           </form>

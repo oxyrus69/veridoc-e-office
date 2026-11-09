@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ShieldCheck, ShieldAlert, ArrowRight, QrCode, FileSearch, LockKeyhole } from "lucide-react";
-import { verifyByCode, listRecentScans, scanStats } from "@/server/services/verificationEngine";
+import { ShieldCheck, ArrowRight, QrCode, FileSearch, LockKeyhole } from "lucide-react";
+import { verifyByCode, listRecentScans, scanStats, logScan } from "@/server/services/verificationEngine";
 import { ResultBadge } from "./result-ui";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +19,19 @@ const DEMO_CODES = [
 
 export default async function VerifyPortal({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { code } = await searchParams;
-  const [stats, recent, preview] = await Promise.all([
-    scanStats(),
-    listRecentScans(6),
-    code ? verifyByCode(code) : Promise.resolve(null),
-  ]);
+  const [stats, recent] = await Promise.all([scanStats(), listRecentScans(6)]);
+
+  // A scan is only recorded when a code is submitted on purpose: a direct visit
+  // to /verify (no `code`) just shows the portal, never a log entry.
+  const preview = code ? await verifyByCode(code) : null;
+  if (preview) {
+    await logScan({
+      verificationCode: code!.trim().toUpperCase(),
+      documentId: preview.document?.id ?? null,
+      result: preview.scanResult,
+      summary: preview.headline,
+    }).catch(() => undefined);
+  }
 
   return (
     <main className="min-h-screen bg-[var(--bg-canvas)] text-zinc-900">

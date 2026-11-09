@@ -420,6 +420,65 @@ await closeDb();
 
 /* ================================================================== */
 
+await check("every server action declares a role guard", async () => {
+  const fsx = await import("node:fs");
+  const pathx = await import("node:path");
+  const source = fsx.readFileSync(pathx.join(process.cwd(), "src/server/actions.ts"), "utf8");
+
+  // Actions that are intentionally open: the public scan log and logout.
+  const openActions = new Set(["verify:log", "logout"]);
+
+  const labels = [...source.matchAll(/case "([^"]+)":/g)];
+  const guard = /requireRole|requireSigner|requireAuthor|requireAdmin|requireOversight|assertNotReadOnly|canAccess|user\.r/;
+  const missing: string[] = [];
+
+  for (let i = 0; i < labels.length; i += 1) {
+    const name = labels[i][1];
+    if (openActions.has(name)) continue;
+    const from = labels[i].index + labels[i][0].length;
+
+    // Fall-through labels share one body: keep scanning until a label that is
+    // separated from this one by real code.
+    let to = source.length;
+    for (let j = i + 1; j < labels.length; j += 1) {
+      const gap = source.slice(from, labels[j].index);
+      if (gap.includes("{")) {
+        to = labels[j].index;
+        break;
+      }
+    }
+
+    if (!guard.test(source.slice(from, to))) missing.push(name);
+  }
+
+  assertEqual(missing.length, 0, "actions without a role guard: " + missing.join(", "));
+});
+
+await check("revision may only be uploaded by an author or an admin", async () => {
+  const fsx = await import("node:fs");
+  const pathx = await import("node:path");
+  const source = fsx.readFileSync(pathx.join(process.cwd(), "src/server/actions.ts"), "utf8");
+  const start = source.indexOf('case "document:revision"');
+  assert(start > 0, "document:revision action must exist");
+  const end = source.indexOf('case "', start + 10);
+  const body = source.slice(start, end > 0 ? end : undefined);
+  assert(
+    /user\.r !== "DOCUMENT_CREATOR" && user\.r !== "SUPER_ADMIN"/.test(body),
+    "revision must be restricted to DOCUMENT_CREATOR or SUPER_ADMIN (a reviewer must not upload revisions)",
+  );
+});
+
+await check("middleware enforces authentication and longest-prefix RBAC", async () => {
+  const fsx = await import("node:fs");
+  const pathx = await import("node:path");
+  const source = fsx.readFileSync(pathx.join(process.cwd(), "src/middleware.ts"), "utf8");
+  assert(/verifySessionToken/.test(source), "middleware must verify the session token");
+  assert(/requiredRoles\(/.test(source), "middleware must apply longest-prefix role rules");
+  assert(/isPublicPath\(/.test(source), "middleware must let public paths through");
+});
+
+await closeDb();
+
 console.log("\nVeriDoc end-to-end verification\n");
 console.log(results.join("\n"));
 console.log(`\n${passed} passed, ${failed} failed\n`);

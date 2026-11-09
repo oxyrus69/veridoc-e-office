@@ -3,14 +3,14 @@ import Link from "next/link";
 import { ChevronRight, Clock3, Inbox as InboxIcon } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/layout/AppShell";
 import EnterpriseDataGrid from "@/components/ui/EnterpriseDataGrid";
-import { FilterChips } from "@/components/ui/EnterpriseDataGrid";
+import {} from "@/components/ui/EnterpriseDataGrid";
 import { SectionCard } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { listInbox, listRecentApprovals } from "@/server/services/approvalEngine";
 import { getCurrentUser } from "@/server/session";
 import { canAccess } from "@/server/auth";
 import { CATEGORY_LABEL, CONFIDENTIALITY_LABEL, relativeTime, formatDateTime } from "@/lib/labels";
-import type { DocumentCategory, Urgency } from "@/server/db/schema";
+import type { DocumentCategory } from "@/server/db/schema";
 
 export const dynamic = "force-dynamic";
 

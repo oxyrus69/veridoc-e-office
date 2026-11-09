@@ -14,9 +14,3 @@ export function toneClasses(tone: "success" | "warning" | "danger" | "info" | "n
       return "border-zinc-200 bg-zinc-100 text-zinc-600";
   }
 }
-
-export function shortHash(hash: string | null | undefined, head = 10, tail = 6): string {
-  if (!hash) return "—";
-  if (hash.length <= head + tail + 1) return hash;
-  return `${hash.slice(0, head)}…${hash.slice(-tail)}`;
-}
