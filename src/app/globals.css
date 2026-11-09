@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/* =================================================================
+   VeriDoc design tokens — Enterprise App Shell contract
+   Palette: zinc/slate precision + one product accent (segel vermillion)
+   ================================================================= */
+
+:root {
+  --bg-canvas: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-elevated: #ffffff;
+
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --accent-primary: #0f172a;
+  --accent-primary-hover: #1e293b;
+  --accent-interactive: #2563eb;
+
+  --status-success-bg: #ecfdf5;
+  --status-success-border: #a7f3d0;
+  --status-success-fg: #065f46;
+  --status-warning-bg: #fffbeb;
+  --status-warning-border: #fde68a;
+  --status-warning-fg: #92400e;
+  --status-danger-bg: #fef2f2;
+  --status-danger-border: #fecaca;
+  --status-danger-fg: #991b1b;
+  --status-info-bg: #eff6ff;
+  --status-info-border: #bfdbfe;
+  --status-info-fg: #1e40af;
+
+  /* Product accent: lilin segel / cap basah */
+  --seal: #9a3412;
+  --seal-soft: #fff7ed;
+  --seal-border: #fed7aa;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-subtle: var(--bg-subtle);
+  --color-elevated: var(--bg-elevated);
+  --color-hairline: var(--border-subtle);
+  --color-hairline-strong: var(--border-strong);
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+  --color-interactive: var(--accent-interactive);
+  --color-seal: var(--seal);
+  --color-seal-soft: var(--seal-soft);
+  --color-seal-border: var(--seal-border);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+}
+
+.metric-value,
+.table-num,
+time,
+code,
+kbd {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" on, "zero" on;
+}
+
+::selection {
+  background: #dbeafe;
+  color: #0f172a;
+}
+
+/* Focus visible everywhere, never removed. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-interactive);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Scrollable containers keep a clean, thin scrollbar. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+/* Naskah dinas paper preview */
+.naskah {
+  background: #fff;
+  color: #111827;
+  font-family: "Times New Roman", Times, serif;
+  line-height: 1.65;
+}
+.naskah h1,
+.naskah h2,
+.naskah h3 {
+  font-family: "Times New Roman", Times, serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
